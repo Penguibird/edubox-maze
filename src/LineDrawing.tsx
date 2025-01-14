@@ -1,5 +1,5 @@
 
-import React, { ReactNode, useRef } from 'react';
+import React, { ComponentProps, ReactNode, useRef } from 'react';
 import { dispatchCustomEvent, LineAnchorData, useCustomEvent } from './CustomEvents';
 import styled from '@emotion/styled';
 import { JSX } from 'react/jsx-runtime';
@@ -64,13 +64,20 @@ const getSumOfInverseRecursiveProperty = (el: HTMLElement | null, prop: keyof HT
   }
 }
 
-export const LineMarker = ({ id }: { id: number }) => {
+interface LineMarkerProps extends Omit<ComponentProps<typeof LineMarkerDiv>, 'id'> {
+  id: number;
+}
 
-  return <LineMarkerDiv ref={(el) => {
-    if (el) {
-      dispatchCustomEvent('addLineAnchor', { anchorId: id, el });
-    }
-  }} />
+export const LineMarker = ({ id, ...props }: LineMarkerProps) => {
+
+  return <LineMarkerDiv
+    ref={(el) => {
+      if (el) {
+        dispatchCustomEvent('addLineAnchor', { anchorId: id, el });
+      }
+    }}
+    {...props}
+  />
 }
 
 const LineMarkerDiv = styled.div`

@@ -5,6 +5,8 @@ import { getEdgeCost, Maze } from "./maze.types";
 import { useCurrentMazeState } from "./main";
 import React from "react";
 import { dispatchCustomEvent } from "./CustomEvents";
+import { useShowPathCosts } from "./GlobalSettings";
+import { costToTime } from "./costToTime";
 
 
 
@@ -16,7 +18,7 @@ interface MazeProps {
 
 const cellSize = 100;
 
-export const MazeComponent: React.FC<MazeProps> = ({ mainOne, maze }) => {
+const UMazeComponent: React.FC<MazeProps> = ({ mainOne, maze }) => {
   const { setState } = useCurrentMazeState();
   const { height, width } = maze.dimensions;
 
@@ -33,6 +35,7 @@ export const MazeComponent: React.FC<MazeProps> = ({ mainOne, maze }) => {
           ...s.maze,
           currentPosition: newP,
           costIncurred: s.maze.costIncurred + costRight!,
+          turnsTaken: s.maze.turnsTaken + 1,
         }
       }));
     }
@@ -44,6 +47,7 @@ export const MazeComponent: React.FC<MazeProps> = ({ mainOne, maze }) => {
           ...s.maze,
           currentPosition: newP,
           costIncurred: s.maze.costIncurred + costRight!,
+          turnsTaken: s.maze.turnsTaken + 1,
         }
       }));
     }
@@ -61,6 +65,7 @@ export const MazeComponent: React.FC<MazeProps> = ({ mainOne, maze }) => {
           ...s.maze,
           currentPosition: newPosition,
           costIncurred: s.maze.costIncurred + costDown!,
+          turnsTaken: s.maze.turnsTaken + 1,
         }
       }));
     }
@@ -72,6 +77,7 @@ export const MazeComponent: React.FC<MazeProps> = ({ mainOne, maze }) => {
           ...s.maze,
           currentPosition: newP,
           costIncurred: s.maze.costIncurred + costDown!,
+          turnsTaken: s.maze.turnsTaken + 1,
         }
       }));
     }
@@ -85,6 +91,7 @@ export const MazeComponent: React.FC<MazeProps> = ({ mainOne, maze }) => {
             {Array.from({ length: width }).map((__, cellI) => {
               const cellId = rowI * width + cellI;
               const costRight = getEdgeCost(maze.edgeList, cellId, cellId + 1);
+              const canClickOnRight = mainOne && (maze.currentPosition == cellId || maze.currentPosition == cellId + 1)
               return <React.Fragment key={cellI}>
                 <Cell
                   key={cellI}
@@ -95,8 +102,12 @@ export const MazeComponent: React.FC<MazeProps> = ({ mainOne, maze }) => {
 
                 {cellI != width - 1
                   && <Bridge
-                    onClick={() => onClickRightBridge(cellId, costRight!)}
-                    right index={cellI + rowI}>{costRight}</Bridge>}
+                    style={{ cursor: canClickOnRight ? 'pointer' : undefined }}
+                    onClick={() => React.startTransition(() => onClickRightBridge(cellId, costRight!))}
+                    right
+                    index={cellI + rowI}
+                    cost={costRight}
+                  ></Bridge>}
 
               </React.Fragment>;
             })}
@@ -107,11 +118,14 @@ export const MazeComponent: React.FC<MazeProps> = ({ mainOne, maze }) => {
               const cellId = rowI * width + cellI; //cell above
 
               const costDown = getEdgeCost(maze.edgeList, rowI * width + cellI, (rowI + 1) * width + cellI);
+              const canClickOnDown = mainOne && (maze.currentPosition == cellId || maze.currentPosition == cellId + width)
               return <React.Fragment key={cellI}>
                 <Bridge
                   index={0}
-                  onClick={() => onClickDownBridge(cellId, costDown!)}
-                >{costDown}</Bridge>
+                  style={{ cursor: canClickOnDown ? 'pointer' : undefined }}
+                  onClick={() => React.startTransition(() => onClickDownBridge(cellId, costDown!))}
+                  cost={costDown}
+                ></Bridge>
                 {cellI == width - 1 ? null : <Spacer />}
               </React.Fragment>;
             })}
@@ -119,9 +133,22 @@ export const MazeComponent: React.FC<MazeProps> = ({ mainOne, maze }) => {
         </React.Fragment>)
       }
     </Grid>
-    <p>Cost: {maze.costIncurred}</p>
+    <ClockText><img src="/assets/clock.webp" /> <p>Čas strávený v lese: {costToTime(maze.costIncurred)}</p></ClockText>
   </Container>
 }
+
+const ClockText = styled.div`
+display: flex;
+flex-direction: row;
+align-items: center;
+justify-content: center;
+gap: 8px;
+  img {
+    height: 30px;
+    aspect-ratio: 1;
+    margin: 4px;
+  }
+`
 
 const Spacer = styled.div`
   width: ${cellSize}px;
@@ -202,27 +229,32 @@ const CellWrapper = styled.div`
 interface BridgeProps extends Omit<React.ComponentProps<typeof BridgeWrapper>, ''> {
   right?: boolean
   index: number
+  cost: number | null
 };
 
-const Bridge: React.FC<BridgeProps> = ({ index, right, children, ...props }) => {
+const Bridge: React.FC<BridgeProps> = ({ cost, index, right, ...props }) => {
   const getRandomInt = (min: number, max: number) => {
     return (index % (max - min + 1)) + min;
   }
-  if (children == null) {
+
+  const showCost = useShowPathCosts();
+
+  if (cost == null) {
     return <Spacer />;
   }
   return <BridgeWrapper
     {...props}
     style={{
+      ...props.style,
       backgroundImage: right
         ? `url("/assets/Path_${getRandomInt(2, 3)}_horizontal.png")`
         : `url("/assets/Path_${getRandomInt(1, 3)}.png")`,
       // rotate: `${getRandomInt(0, 1) * 180}deg`,
     }}
   >
-    <CostText>
-      {children}
-    </CostText>
+    {showCost && <CostText>
+      {costToTime(cost)}
+    </CostText>}
   </BridgeWrapper>
 }
 
@@ -259,3 +291,10 @@ filter: saturate(0.8) brightness(0.9);
     justify-content: center;
 `;
 
+
+
+export const MazeComponent = React.memo(UMazeComponent, (prevProps, nextProps) => {
+  return prevProps.mainOne == nextProps.mainOne
+    && prevProps.maze.costIncurred == nextProps.maze.costIncurred
+    && prevProps.maze.currentPosition == nextProps.maze.currentPosition
+})

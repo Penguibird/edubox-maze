@@ -37,6 +37,7 @@ export type Maze = {
   endCoord: NodeId
   currentPosition: NodeId
   costIncurred: number
+  turnsTaken: number
   visitedNodes: number[]
   dimensions: {
     width: number
@@ -44,8 +45,33 @@ export type Maze = {
   }
 }
 
+export type MazeState = {
+  maze: Maze,
+  treeNodeId: number
+}
 
-export const defaultMaze: EdgeList = {
+
+export const newMazeState = (edgeList: EdgeList, height: number, width: number): MazeState => {
+  const lastNode = (height * width) - 1
+  return {
+    treeNodeId: 1,
+    maze: {
+      visitedNodes: [0],
+      currentPosition: 0,
+      startCoord: 0,
+      endCoord: lastNode,
+      edgeList,
+      costIncurred: 0,
+      turnsTaken: 0,
+      dimensions: {
+        height, width,
+      }
+    }
+  }
+}
+
+// 3 x 2
+const small: EdgeList = {
   '0,1': 3,
   '1,2': 1,
   '0,3': 1,
@@ -56,20 +82,38 @@ export const defaultMaze: EdgeList = {
   // '3,5': 1,
 }
 
+// 4 x 4
+const medium = {
+  '0,1': 1,
+  '1,2': 1,
+  '2,3': 1,
 
-export const initialState = {
-  treeNodeId: 1,
-  maze: {
-    visitedNodes: [0],
-    currentPosition: 0,
-    endCoord: 5,
-    startCoord: 0,
-    edgeList: defaultMaze,
-    costIncurred: 0,
-    mazeWidth: 3,
-    dimensions: {
-      height: 2,
-      width: 3,
-    }
-  } as Maze,
-};
+  '0,4': 1,
+  '1,5': 1,
+  '2,6': 1,
+  '3,7': 1,
+
+  '4,5': 1,
+  '5,6': 1,
+  '6,7': 1,
+
+  '4,8': 1,
+  '5,9': 1,
+  '6,10': 1,
+  '7,11': 1,
+
+  '8,9': 1,
+  '9,10': 1,
+  '10,11': 1,
+
+  '8,12': 1,
+  '9,13': 1,
+  '10,14': 1,
+  '11,15': 1,
+}
+
+export const presetMazes = {
+  small: newMazeState(small, 2, 3),
+  medium: newMazeState(medium, 4, 4),
+}
+

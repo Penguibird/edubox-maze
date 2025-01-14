@@ -14,13 +14,14 @@ interface MazeSearchTreeProps extends Omit<React.ComponentProps<typeof Wrapper>,
 };
 
 const MazeSearchTree: React.FC<MazeSearchTreeProps> = ({ maze, ...props }) => {
-  const tree = constructMazeSearchTree()(maze)
-  console.log(tree)
+  const tree = React.useMemo(() => constructMazeSearchTree()(maze), [maze])
   const scrollParentRef = React.useRef(null)
+  const [zoomedOut, setZoomedOut] = React.useState(false)
   return <Wrapper {...props}>
-    <InnerWrapper ref={scrollParentRef}>
+    <button style={{ position: 'fixed', right: 20, top: 20, zIndex: 50 }} onClick={() => setZoomedOut(s => !s)}>Zoom</button>
+    <InnerWrapper ref={scrollParentRef} >
       <LineDrawingCanvas scrollParent={scrollParentRef.current as any} />
-      <MazeTreeNode tree={tree} level={0} />
+      <MazeTreeNode style={{ transformOrigin: 'top center', transform: `scale(${zoomedOut ? 0.15 : 0.7})` }} tree={tree} level={0} />
     </InnerWrapper>
   </Wrapper>
 }
@@ -42,12 +43,12 @@ const InnerWrapper = styled.div`
 `
 
 
-interface MazeTreeNodeProps {
+interface MazeTreeNodeProps extends React.ComponentProps<typeof MazeTreeNodeWrapper> {
   tree: Tree<Maze>
   level: number
 };
 
-const MazeTreeNode: React.FC<MazeTreeNodeProps> = ({ level, tree, }) => {
+const MazeTreeNode: React.FC<MazeTreeNodeProps> = React.memo(({ level, tree, ...props }) => {
   const { setState, state: { treeNodeId } } = useCurrentMazeState();
   const isHighlighted = treeNodeId == tree.id;
   const ref = React.useRef(null as null | HTMLDivElement)
@@ -60,9 +61,10 @@ const MazeTreeNode: React.FC<MazeTreeNodeProps> = ({ level, tree, }) => {
     if (isHighlighted) {
       const newTree = tree.children.find(child => child.node.currentPosition == newPos);
       if (newTree) {
-        setState(() => ({
+        setState((s) => ({
+          ...s,
           treeNodeId: newTree.id,
-          maze: newTree.node,
+          // maze: newTree.node,
         }))
       } else {
         if (!tree.parentId) {
@@ -75,8 +77,11 @@ const MazeTreeNode: React.FC<MazeTreeNodeProps> = ({ level, tree, }) => {
       }
     }
   })
-  return <MazeTreeNodeWrapper style={{ transform: `scale(${1 / (1.1 + (level / 8))})`, }}>
-    <LineMarker id={tree.id} />
+  return <MazeTreeNodeWrapper {...props}>
+    <LineMarker id={tree.id} style={{
+      marginBottom: '-70px'
+      // marginTop: 50,
+    }} />
     <div ref={ref} style={{ border: isHighlighted ? '2px solid hotpink' : 'none' }}
       onClick={() => setState(() => ({
         treeNodeId: tree.id,
@@ -95,14 +100,15 @@ const MazeTreeNode: React.FC<MazeTreeNodeProps> = ({ level, tree, }) => {
       </div>)}
     </Row>
   </MazeTreeNodeWrapper>
-}
+})
 
 const Row = styled.div`
+/* margin-top: 50px; */
   display: flex;
   flex-direction: row;
   align-items: flex-start;
   justify-content: center;
-  gap: 12px;
+  gap: 80px;
 `
 
 const MazeTreeNodeWrapper = styled.div`
@@ -110,8 +116,8 @@ const MazeTreeNodeWrapper = styled.div`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  /* gap: 24px; */
-
+  gap: 80px;
+  margin-inline: 50px;
 
 `
 
@@ -136,6 +142,7 @@ const getPossibleMoves = (maze: Maze): Maze[] => {
     return {
       ...maze,
       costIncurred: maze.costIncurred + cost,
+      turnsTaken: maze.turnsTaken + 1,
       currentPosition: newN,
       visitedNodes: [...maze.visitedNodes, newN]
     }
@@ -145,7 +152,7 @@ const getPossibleMoves = (maze: Maze): Maze[] => {
 const notEmpty = <U,>(t: U | null | undefined): t is U => Boolean(t)
 
 
-const constructMazeSearchTree = () => {
+export const constructMazeSearchTree = () => {
 
   let id = 1;
 
