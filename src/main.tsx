@@ -9,6 +9,7 @@ import MazeSearchTree from './mazeSearchTree';
 import './style.css'
 import { LineDrawingCanvas } from './LineDrawing';
 import { dispatchCustomEvent } from './CustomEvents';
+import ModalManager from './Modals/ModalManager';
 
 
 type ReactState<T> = {
@@ -32,9 +33,16 @@ export const useCurrentMazeState = () => {
 export const CurrentMazeStateProvider = CurrentMazeState.Provider;
 
 
+
 const App: React.FC<object> = () => {
 
     const [state, setState] = React.useState(initialState)
+
+    React.useEffect(()=>{
+       if (state.maze.currentPosition == state.maze.endCoord) {
+        ModalManager.showModal()
+       }
+    },[])
 
     const currentMaze = <MazeComponent
         maze={state.maze}

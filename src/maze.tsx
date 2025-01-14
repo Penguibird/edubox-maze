@@ -4,7 +4,6 @@ import styled from "@emotion/styled";
 import { getEdgeCost, Maze } from "./maze.types";
 import { useCurrentMazeState } from "./main";
 import React from "react";
-import { LineMarker } from "./LineDrawing";
 import { dispatchCustomEvent } from "./CustomEvents";
 
 
@@ -22,7 +21,7 @@ export const MazeComponent: React.FC<MazeProps> = ({ mainOne, maze }) => {
   const { height, width } = maze.dimensions;
 
 
-  const moveRight = (cellId: number, costRight: number) => {
+  const onClickRightBridge = (cellId: number, costRight: number) => {
     if (!mainOne) {
       return;
     }
@@ -50,7 +49,7 @@ export const MazeComponent: React.FC<MazeProps> = ({ mainOne, maze }) => {
     }
   };
 
-  const moveDown = (cellId: number, costDown: number) => {
+  const onClickDownBridge = (cellId: number, costDown: number) => {
     if (!mainOne) {
       return;
     }
@@ -91,11 +90,12 @@ export const MazeComponent: React.FC<MazeProps> = ({ mainOne, maze }) => {
                   key={cellI}
                 >
                   {maze.currentPosition == cellId && <Player />}
+                  {maze.endCoord == cellId && <House />}
                 </Cell>
 
                 {cellI != width - 1
                   && <Bridge
-                    onClick={() => moveRight(cellId, costRight!)}
+                    onClick={() => onClickRightBridge(cellId, costRight!)}
                     right index={cellI + rowI}>{costRight}</Bridge>}
 
               </React.Fragment>;
@@ -110,7 +110,7 @@ export const MazeComponent: React.FC<MazeProps> = ({ mainOne, maze }) => {
               return <React.Fragment key={cellI}>
                 <Bridge
                   index={0}
-                  onClick={() => moveDown(cellId, costDown!)}
+                  onClick={() => onClickDownBridge(cellId, costDown!)}
                 >{costDown}</Bridge>
                 {cellI == width - 1 ? null : <Spacer />}
               </React.Fragment>;
@@ -142,6 +142,15 @@ const Player = styled.div`
   background-position: center;
   background-size: cover;
   height: 60px;
+  aspect-ratio: 1;
+`
+
+const House = styled.div`
+  background-image: url("/assets/house.png");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  height: 80px;
   aspect-ratio: 1;
 `
 
