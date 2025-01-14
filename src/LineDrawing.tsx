@@ -29,7 +29,6 @@ export const LineDrawingCanvas = ({ scrollParent }: { scrollParent: HTMLElement 
   const svgLines: ReactNode[] = [];
   const parentRect = scrollParent?.getBoundingClientRect();
   const parentParentRect = scrollParent?.parentElement?.getBoundingClientRect();
-  console.log(parentRect, parentParentRect)
 
   const totalScrollLeft = getSumOfInverseRecursiveProperty(scrollParent, 'scrollLeft');
   const xOffset = (parentRect?.x ?? 0) - 2 * (parentParentRect?.x ?? 0) + 2 * totalScrollLeft;

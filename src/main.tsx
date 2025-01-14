@@ -53,10 +53,9 @@ const VictoryModal: React.FC<VictoryModalProps> = ({ cost, ...props }) => {
 }
 
 
-const runSimulation = async (
-    setMazeState: React.Dispatch<React.SetStateAction<MazeState>>,
+const runSimulation = (
     initialMaze: MazeState,
-) => {
+): MazeState[] => {
     const tree = constructMazeSearchTree()(initialMaze.maze);
 
     let minCost = Infinity;
@@ -72,32 +71,35 @@ const runSimulation = async (
 
     visitNode(tree);
 
+    const states = [initialMaze] as MazeState[];
+    console.log(minCostPath);
     for (const visitedNode of minCostPath) {
         if (visitedNode == 0) {
             continue;
         }
-        setMazeState(s => {
 
-            const edgeKey = `${s.maze.currentPosition},${visitedNode}` as const;
-            const edgeTakenCost = s.maze.edgeList[edgeKey]
-            if (!edgeTakenCost) {
-                console.log(edgeKey, s)
-                throw new Error("Cannot find taken edge")
+        const s = states[states.length - 1];
+
+        const edgeKey = `${s.maze.currentPosition},${visitedNode}` as const;
+        const edgeTakenCost = s.maze.edgeList[edgeKey]
+        if (!edgeTakenCost) {
+            console.log(edgeKey, s)
+            throw new Error("Cannot find taken edge")
+        }
+        states.push({
+            treeNodeId: 1,
+            maze: {
+                ...s.maze,
+                currentPosition: visitedNode,
+                visitedNodes: [...s.maze.visitedNodes, visitedNode],
+                turnsTaken: s.maze.turnsTaken + 1,
+                costIncurred: s.maze.costIncurred + edgeTakenCost,
             }
-            return ({
-                treeNodeId: 1,
-                maze: {
-                    ...s.maze,
-                    currentPosition: visitedNode,
-                    visitedNodes: [...s.maze.visitedNodes, visitedNode],
-                    turnsTaken: s.maze.turnsTaken + 1,
-                    costIncurred: s.maze.costIncurred + edgeTakenCost,
-                }
-            });
-        })
+        });
 
-        await sleep(1_000)
     }
+
+    return states;
 }
 
 
@@ -108,20 +110,33 @@ const App: React.FC<object> = () => {
 
     // React.useEffect(() => {
     // }, [state.maze.costIncurred, state.maze.currentPosition, state.maze.endCoord])
-    console.log(mazeState)
     if (mazeState.maze.currentPosition == mazeState.maze.endCoord) {
-        ModalManager.showModal(VictoryModal, { cost: mazeState.maze.costIncurred })
+        ModalManager.showModal(VictoryModal, { cost: mazeState.maze.costIncurred }, { key: 'victorymodal' })
             .then(() => {
                 setMazeState(initialMazeState)
             })
     }
 
+    const simulationStack = React.useRef([] as MazeState[])
+
+
     React.useEffect(() => {
+
         if (globalState == GlobalAppState.Simulation) {
-            runSimulation(setMazeState, initialMazeState)
-                .then(() => setGlobalState(s => ({ ...s, state: GlobalAppState.Interactive })))
+            const nextState = simulationStack.current.shift()
+            console.log(nextState?.maze.currentPosition, simulationStack.current.map(n => n.maze.currentPosition))
+            const i = setTimeout(() => {
+                if (nextState) {
+                    setMazeState(nextState);
+                } else {
+                    setGlobalState(s => ({ ...s, state: GlobalAppState.Interactive }))
+                }
+            }, 1_000)
+
+            return () => clearTimeout(i)
         }
-    }, [globalState, initialMazeState, setGlobalState])
+
+    }, [globalState, mazeState])
 
     React.useEffect(() => {
         setMazeState(initialMazeState)
@@ -143,7 +158,14 @@ const App: React.FC<object> = () => {
                     <h1>Najdi cestu bludištěm</h1>
                     {currentMaze}
 
-                    <Settings onReset={() => setMazeState(initialMazeState)} />
+                    <Settings
+                        onReset={() => setMazeState(initialMazeState)}
+                        onSimulate={() => {
+                            setMazeState(initialMazeState)
+                            simulationStack.current = (runSimulation(initialMazeState))
+                            setGlobalState(s => ({ ...s, state: GlobalAppState.Simulation }))
+                        }}
+                    />
                 </Col>
 
                 {showTree &&
@@ -160,9 +182,10 @@ const App: React.FC<object> = () => {
 
 interface SettingsProps {
     onReset: () => void
+    onSimulate: () => void
 };
 
-const Settings: React.FC<SettingsProps> = ({ onReset, }) => {
+const Settings: React.FC<SettingsProps> = ({ onSimulate, onReset, }) => {
 
     const { setState, state } = useGlobalSettings()
     const [expanded, setExpanded] = React.useState(false)
@@ -177,9 +200,14 @@ const Settings: React.FC<SettingsProps> = ({ onReset, }) => {
             <button onClick={() => setState(s => ({ ...s, noCostMode: !s.noCostMode }))}>{state.noCostMode ? 'Zapnout' : 'Vypnout'} časy cest</button>
             <Row>
                 <p>Presety bludiště</p>
-                {ObjectEntries(presetMazes)?.map(([k, v]) => <button key={k} onClick={() => setState(s => ({ ...s, initialMazeState: v }))}>{k}</button>)}
+                {ObjectEntries(presetMazes)?.map(([k, v]) => (
+                    <button key={k} onClick={() => {
+                        setState(s => ({ ...s, initialMazeState: v }));
+                        onReset();
+                    }}>{k}</button>
+                ))}
             </Row>
-            <button onClick={() => setState(s => ({ ...s, state: GlobalAppState.Simulation }))}>Spustit simulaci</button>
+            <button onClick={onSimulate}>Spustit simulaci</button>
         </>}
     </SettingsWrapper>
 }
