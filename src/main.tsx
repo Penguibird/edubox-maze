@@ -15,6 +15,7 @@ import { GlobalAppState, GlobalSettingsProvider, useGlobalSettings, useShowPathC
 import SvgArrowDown from './utils/ArrowDown';
 import { costToTime } from './costToTime';
 import { ObjectEntries } from './utils/ObjectEntries';
+import { zip } from 'lodash'
 import { sleep } from './utils/sleep';
 
 
@@ -60,22 +61,34 @@ const runSimulation = (
 
     let minCost = Infinity;
     let minCostPath = [] as number[];
+    let minCostPathTreeNodeIds = [] as number[]
 
-    const visitNode = (node: typeof tree) => {
-        if (node.node.endCoord == node.node.currentPosition) {
+    const visitNode = (node: typeof tree, treeNodeIds: number[]) => {
+        treeNodeIds = [...treeNodeIds, node.id];
+        if (node.node.endCoord == node.node.currentPosition && node.node.costIncurred < minCost) {
             minCost = node.node.costIncurred;
             minCostPath = node.node.visitedNodes;
+            minCostPathTreeNodeIds = treeNodeIds;
         }
-        node.children.forEach(visitNode)
+        node.children.forEach(n => visitNode(n, treeNodeIds))
     }
 
-    visitNode(tree);
+    visitNode(tree, []);
 
     const states = [initialMaze] as MazeState[];
     console.log(minCostPath);
-    for (const visitedNode of minCostPath) {
+    console.log({
+        minCostPath,
+        minCostPathTreeNodeIds,
+        zip: zip(minCostPath, minCostPathTreeNodeIds)
+    })
+    for (const [visitedNode, treeNodeId] of zip(minCostPath, minCostPathTreeNodeIds)) {
         if (visitedNode == 0) {
             continue;
+        }
+
+        if (!visitedNode || !treeNodeId) {
+            throw new Error("Invalid data")
         }
 
         const s = states[states.length - 1];
@@ -87,7 +100,7 @@ const runSimulation = (
             throw new Error("Cannot find taken edge")
         }
         states.push({
-            treeNodeId: 1,
+            treeNodeId,
             maze: {
                 ...s.maze,
                 currentPosition: visitedNode,
@@ -110,13 +123,18 @@ const App: React.FC<object> = () => {
 
     // React.useEffect(() => {
     // }, [state.maze.costIncurred, state.maze.currentPosition, state.maze.endCoord])
-    if (mazeState.maze.currentPosition == mazeState.maze.endCoord) {
-        ModalManager.showModal(VictoryModal, { cost: mazeState.maze.costIncurred }, { key: 'victorymodal' })
-            .then(() => {
+    React.useEffect(() => {
+        (async () => {
+            if (mazeState.maze.currentPosition == mazeState.maze.endCoord) {
+                if (globalState == GlobalAppState.Simulation) {
+                    await sleep(1_000);
+                }
+                await ModalManager.showModal(VictoryModal, { cost: mazeState.maze.costIncurred }, { key: 'victorymodal' })
                 setMazeState(initialMazeState)
-            })
-    }
+            }
+        })()
 
+    }, [globalState, initialMazeState, mazeState.maze.costIncurred, mazeState.maze.currentPosition, mazeState.maze.endCoord])
     const simulationStack = React.useRef([] as MazeState[])
 
 
@@ -203,7 +221,9 @@ const Settings: React.FC<SettingsProps> = ({ onSimulate, onReset, }) => {
                 {ObjectEntries(presetMazes)?.map(([k, v]) => (
                     <button key={k} onClick={() => {
                         setState(s => ({ ...s, initialMazeState: v }));
-                        onReset();
+                        setTimeout(() => {
+                            onReset();
+                        }, 0);
                     }}>{k}</button>
                 ))}
             </Row>
